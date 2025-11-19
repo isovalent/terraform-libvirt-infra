@@ -1,0 +1,11 @@
+version: 2
+ethernets:
+  ens3:
+    dhcp4: false
+    dhcp6: false
+    addresses: 
+      - ${public_test_box_ipv4_address}
+    gateway4: ${public_gateway_ip_no_mask}
+  ens4:
+    dhcp4: true
+    dhcp6: true

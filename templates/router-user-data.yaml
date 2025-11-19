@@ -1,0 +1,281 @@
+#cloud-config
+write_files:
+  - content: |
+      defaults
+        mode tcp
+        option tcp-check
+        timeout check 2s
+        timeout client 90s
+        timeout connect 5s
+        timeout server 90s
+
+      frontend kube_apiserver
+        bind 0.0.0.0:6443
+        use_backend kube_apiserver
+
+      backend kube_apiserver
+        balance roundrobin
+        %{ for i, v in k8s_master_info_list ~}
+        server ${v.hostname} ${v.ipv4}:6443 check rise 3 fall 1 inter 1s
+        %{ endfor ~}
+      
+      frontend machine-config-server-22623
+        bind 0.0.0.0:22623
+        use_backend machine-config-server
+
+      backend machine-config-server
+        balance roundrobin
+        %{ for i, v in k8s_master_info_list ~}
+        server ${v.hostname} ${v.ipv4}:22623 check rise 3 fall 1 inter 1s
+        %{ endfor ~}
+
+      frontend ingress-router-443
+        bind 0.0.0.0:443
+        use_backend ingress-router-443
+
+      backend ingress-router-443
+        balance roundrobin
+        %{ for i, v in k8s_worker_info_list ~}
+        server ${v.hostname} ${v.ipv4}:443 check rise 3 fall 1 inter 1s
+        %{ endfor ~}
+
+      frontend ingress-router-80
+        bind 0.0.0.0:80
+        use_backend ingress-router-80
+
+      backend ingress-router-80
+        balance roundrobin
+        %{ for i, v in k8s_worker_info_list ~}
+        server ${v.hostname} ${v.ipv4}:80 check rise 3 fall 1 inter 1s
+        %{ endfor ~}
+
+    owner: root:root
+    path: /config/container/haproxy/haproxy.cfg
+    permissions: '0664'
+
+  - content: |
+      .:53 {
+        forward . 8.8.8.8:53
+        log
+        errors
+      }
+      ${cluster_name}.${dns_base_domain}:53 {
+        file /root/db.${cluster_name}.${dns_base_domain}
+        log
+        errors
+      }
+
+    owner: root:root
+    path: /config/container/coredns/Corefile
+    permissions: '0664'
+
+  - content: |
+      ${cluster_name}.${dns_base_domain}. IN SOA localhost. root.localhost. 2021102401 7200 3600 1209600 3600
+      ${cluster_name}.${dns_base_domain}. IN NS localhost.
+      
+      %{ for i, v in k8s_master_info_list ~}
+${v.hostname} IN A ${v.ipv4}
+      %{ endfor ~}
+
+      %{ for i, v in k8s_worker_info_list ~}
+${v.hostname} IN A ${v.ipv4}  
+      %{ endfor ~}
+
+      api IN A ${router_private_ipv4_address_no_mask}
+      api-int IN A ${router_private_ipv4_address_no_mask}
+      *.apps IN A ${router_private_ipv4_address_no_mask}
+
+
+      # no bootstrap DNS record for now 
+      # have to indent the for loop like this to follow the correct format
+
+    
+    owner: root:root
+    path: /config/container/coredns/db.${cluster_name}.${dns_base_domain}
+    permissions: '0664'
+
+  - content: |
+      default-lease-time 600;
+      max-lease-time 7200;
+
+      subnet ${private_network_ipv4_cidr_no_mask} netmask ${private_network_ipv4_netmask} {
+          range ${dhcp_vm_node_cidr_first_ipv4_address} ${dhcp_vm_node_cidr_last_ipv4_address}; 
+          option routers ${router_private_ipv4_address_no_mask}; 
+          option subnet-mask ${private_network_ipv4_netmask}; 
+          option domain-name-servers ${router_private_ipv4_address_no_mask};
+      }
+
+      %{ for i, v in k8s_master_info_list ~}
+host ${v.hostname}{
+        hardware ethernet ${v.mac};
+        fixed-address ${v.ipv4};
+        option host-name "${v.hostname}";
+      }      
+      %{ endfor ~}
+
+      %{ for i, v in k8s_worker_info_list ~}
+host ${v.hostname}{
+        hardware ethernet ${v.mac};
+        fixed-address ${v.ipv4};
+        option host-name "${v.hostname}";
+      }      
+      %{ endfor ~}
+
+
+
+    owner: root:root
+    path: /config/container/dhcpd/dhcpd.conf
+    permissions: '0644'
+  - content: |
+      default-lease-time 600;
+      max-lease-time 7200;
+
+      subnet6 ${private_network_ipv6_cidr} {
+          range6 ${dhcp_vm_node_cidr_first_ipv6_address} ${dhcp_vm_node_cidr_last_ipv6_address}; 
+      }
+
+      %{ for i, v in k8s_master_info_list ~}
+host ${v.hostname}{
+        hardware ethernet ${v.mac};
+        fixed-address6 ${v.ipv6};
+      }      
+      %{ endfor ~}
+
+      %{ for i, v in k8s_worker_info_list ~}
+host ${v.hostname}{
+        hardware ethernet ${v.mac};
+        fixed-address6 ${v.ipv6};
+      }      
+      %{ endfor ~}
+
+    owner: root:root
+    path: /config/container/dhcpd6/dhcpd.conf
+    permissions: '0644'
+
+  - content: |
+      #!/bin/vbash
+
+      if [ "$(id -g -n)" != 'vyattacfg' ] ; then
+        exec sg vyattacfg -c "/bin/vbash $(readlink -f $0) $@"
+      fi
+
+      source /opt/vyatta/etc/functions/script-template
+
+      # Configure the base VyOS installation.
+      configure
+
+      set system host-name ${name}
+      delete interfaces ethernet eth0 address dhcp
+      set interfaces ethernet eth0 address ${router_public_ipv4_address}
+      set interfaces ethernet eth1 address ${router_private_ipv4_address}
+      set interfaces ethernet eth1 address ${router_private_ipv6_address}
+      # Configure the ipv6 RA for VYOS
+      set service router-advert interface eth1 prefix ${private_network_ipv6_cidr}
+      set service router-advert interface eth1 managed-flag
+      # Configure the ipv6 isis for srv6
+      # Configure the ipv6 rr for srv6
+      # Configure the basic staic route and NAT
+      set protocols static route 0.0.0.0/0 next-hop ${router_public_gateway_ipv4_address_no_mask}
+      set nat source rule 1 outbound-interface name eth0
+      set nat source rule 1 source address ${private_network_ipv4_cidr}
+      set nat source rule 1 translation address masquerade
+      set system name-server '8.8.8.8'
+      set system login user vyos authentication plaintext-password ${vyos_password}
+      delete system name-server eth0
+
+      set protocols bgp system-as 65000
+      set protocols bgp parameters log-neighbor-changes
+      set protocols bgp parameters router-id ${router_private_ipv4_address_no_mask}
+      set protocols bgp listen range ${private_network_ipv4_cidr} peer-group 'kubernetes'
+      set protocols bgp peer-group kubernetes address-family ipv4-unicast soft-reconfiguration inbound
+      set protocols bgp peer-group kubernetes disable-connected-check
+      set protocols bgp peer-group kubernetes ebgp-multihop 10
+      set protocols bgp peer-group kubernetes passive
+      set protocols bgp peer-group kubernetes remote-as 65000
+      commit
+      save
+      # Using the container than the vyos built-in features since we need vyos doesn't support some DHCP options and similiar reasons for DNS
+      # Pull the container image for coredns
+      while ! /opt/vyatta/bin/vyatta-op-cmd-wrapper add container image docker.io/coredns/coredns:1.11.1
+      do
+        echo "Failed to add image, trying again..."
+        sleep 1
+      done
+
+      # Configure the CoreDNS container.
+      
+      set container name coredns allow-host-networks
+      set container name coredns image 'docker.io/coredns/coredns:1.11.1'
+      set container name coredns memory '128'
+      set container name coredns restart 'always'
+      set container name coredns shared-memory '512'
+      set container name coredns command '-conf /root/Corefile'
+      set container name coredns volume config destination '/root'
+      set container name coredns volume config source '/config/container/coredns'
+
+      commit
+      save
+
+      # Pull the container image for HAProxy
+      while ! /opt/vyatta/bin/vyatta-op-cmd-wrapper add container image docker.io/library/haproxy:2.8.3-alpine
+      do
+        echo "Failed to add image, trying again..."
+        sleep 1
+      done
+
+      # Configure the HAProxy container.
+      
+      set container name haproxy allow-host-networks
+      set container name haproxy image 'haproxy:2.8.3-alpine'
+      set container name haproxy memory '128'
+      set container name haproxy cap-add net-bind-service
+      set container name haproxy restart 'always'
+      set container name haproxy shared-memory '512'
+      set container name haproxy volume config destination '/usr/local/etc/haproxy'
+      set container name haproxy volume config mode 'ro'
+      set container name haproxy volume config source '/config/container/haproxy'
+
+      commit
+      save
+
+
+      # Pull the container image for dhcpd since vyos dhcp can't do dhcp option to set the hostname
+      while ! /opt/vyatta/bin/vyatta-op-cmd-wrapper add container image docker.io/networkboot/dhcpd:1
+      do
+        echo "Failed to add image, trying again..."
+        sleep 1
+      done
+      
+      set container name dhcpd allow-host-networks
+      set container name dhcpd image 'networkboot/dhcpd:1'
+      set container name dhcpd memory '128'
+      set container name dhcpd cap-add net-raw 
+      set container name dhcpd cap-add net-bind-service
+      set container name dhcpd restart 'always'
+      set container name dhcpd shared-memory '512'
+      set container name dhcpd command 'eth1'
+      set container name dhcpd volume config destination '/data'
+      set container name dhcpd volume config mode 'rw'
+      set container name dhcpd volume config source '/config/container/dhcpd'
+
+      set container name dhcpd6 allow-host-networks
+      set container name dhcpd6 image 'networkboot/dhcpd:1'
+      set container name dhcpd6 environment 'DHCPD_PROTOCOL' value 6
+      set container name dhcpd6 memory '128'
+      set container name dhcpd6 cap-add net-raw 
+      set container name dhcpd6 cap-add net-bind-service
+      set container name dhcpd6 restart 'always'
+      set container name dhcpd6 shared-memory '512'
+      set container name dhcpd6 command 'eth1'
+      set container name dhcpd6 volume config destination '/data'
+      set container name dhcpd6 volume config mode 'rw'
+      set container name dhcpd6 volume config source '/config/container/dhcpd6'
+      commit
+      save
+      exit
+    owner: root:vyattacfg
+    path: /opt/vyatta/etc/config/scripts/vyos-postconfig-bootup.script
+    permissions: '0775'
+
+
+

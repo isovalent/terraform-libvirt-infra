@@ -1,0 +1,35 @@
+#cloud-config
+disable_root: false
+hostname: ${name}
+growpart:
+  mode: auto
+  devices:
+    - "/"
+ssh_pwauth: false
+package_update: true
+packages:
+  - conntrack
+  - socat
+  - jq
+  - netcat-openbsd
+users:
+  - name: ${name}
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: wheel
+    shell: /bin/bash
+    lock_passwd: false
+    ssh_authorized_keys: ${public_ssh_keys}
+
+write_files:
+  - path: /home/${name}/.ssh/id_rsa
+    permissions: 0o600
+    encoding: base64
+    defer: true
+    content: |
+      ${private_ssh_key}
+runcmd:
+  - |
+    #!/bin/bash
+  - "rm -f /etc/resolv.conf" # change the etc/resolv.conf not to use stub-resolv.conf
+  - "ln -sv /run/systemd/resolve/resolv.conf /etc/resolv.conf"
+  - chown -R ${name}:${name} /home/${name}
