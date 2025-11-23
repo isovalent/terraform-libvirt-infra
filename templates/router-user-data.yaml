@@ -257,7 +257,8 @@ host ${v.hostname}{
       set container name dhcpd volume config destination '/data'
       set container name dhcpd volume config mode 'rw'
       set container name dhcpd volume config source '/config/container/dhcpd'
-
+%{#
+      disable dhcpd6 since the current config is wrong
       set container name dhcpd6 allow-host-networks
       set container name dhcpd6 image 'networkboot/dhcpd:1'
       set container name dhcpd6 environment 'DHCPD_PROTOCOL' value 6
@@ -270,6 +271,7 @@ host ${v.hostname}{
       set container name dhcpd6 volume config destination '/data'
       set container name dhcpd6 volume config mode 'rw'
       set container name dhcpd6 volume config source '/config/container/dhcpd6'
+#}%
       commit
       save
       exit
