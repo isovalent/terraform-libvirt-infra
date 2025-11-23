@@ -5,7 +5,12 @@ ethernets:
     dhcp6: false
     addresses: 
       - ${public_test_box_ipv4_address}
+      - ${public_test_box_ipv6_address}
     gateway4: ${public_gateway_ip_no_mask}
+    gateway6: ${public_gateway_ip_v6_no_mask}
   ens4:
     dhcp4: true
-    dhcp6: true
+    dhcp6: false
+    addresses:
+      - ${private_test_box_ipv6_address}
+    gateway6: ${private_gateway_ip_v6_no_mask}

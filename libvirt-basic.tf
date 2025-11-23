@@ -2,14 +2,14 @@ resource "libvirt_network" "libvirt_public_network" {
   autostart = true
   mode      = "nat"
   name      = "libvirt_public_network"
-  addresses = [var.public_network_ipv4_cidr]
+  addresses = [var.public_network_ipv4_cidr,var.public_network_ipv6_cidr]
 
   dhcp {
-    enabled = false // We'll set the router's networking up manually.
+    enabled = false 
   }
 
   dns {
-    enabled = false // We'll set the router's DNS up manually.
+    enabled = false
   }
 }
 

@@ -167,6 +167,7 @@ host ${v.hostname}{
       set system host-name ${name}
       delete interfaces ethernet eth0 address dhcp
       set interfaces ethernet eth0 address ${router_public_ipv4_address}
+      set interfaces ethernet eth0 address ${router_public_ipv6_address}
       set interfaces ethernet eth1 address ${router_private_ipv4_address}
       set interfaces ethernet eth1 address ${router_private_ipv6_address}
       # Configure the ipv6 RA for VYOS
@@ -191,7 +192,15 @@ host ${v.hostname}{
       set protocols bgp peer-group kubernetes disable-connected-check
       set protocols bgp peer-group kubernetes ebgp-multihop 10
       set protocols bgp peer-group kubernetes passive
-      set protocols bgp peer-group kubernetes remote-as 65000
+      set protocols bgp peer-group kubernetes remote-as 65001
+
+      set protocols bgp listen range ${private_network_ipv6_cidr} peer-group 'kubernetes-ipv6'
+      set protocols bgp peer-group kubernetes-ipv6 address-family ipv6-unicast soft-reconfiguration inbound
+      set protocols bgp peer-group kubernetes-ipv6 disable-connected-check
+      set protocols bgp peer-group kubernetes-ipv6 ebgp-multihop 10
+      set protocols bgp peer-group kubernetes-ipv6 passive
+      set protocols bgp peer-group kubernetes-ipv6 remote-as 65001
+
       commit
       save
       # Using the container than the vyos built-in features since we need vyos doesn't support some DHCP options and similiar reasons for DNS
@@ -257,21 +266,19 @@ host ${v.hostname}{
       set container name dhcpd volume config destination '/data'
       set container name dhcpd volume config mode 'rw'
       set container name dhcpd volume config source '/config/container/dhcpd'
-%{#
-      disable dhcpd6 since the current config is wrong
-      set container name dhcpd6 allow-host-networks
-      set container name dhcpd6 image 'networkboot/dhcpd:1'
-      set container name dhcpd6 environment 'DHCPD_PROTOCOL' value 6
-      set container name dhcpd6 memory '128'
-      set container name dhcpd6 cap-add net-raw 
-      set container name dhcpd6 cap-add net-bind-service
-      set container name dhcpd6 restart 'always'
-      set container name dhcpd6 shared-memory '512'
-      set container name dhcpd6 command 'eth1'
-      set container name dhcpd6 volume config destination '/data'
-      set container name dhcpd6 volume config mode 'rw'
-      set container name dhcpd6 volume config source '/config/container/dhcpd6'
-#}%
+      # disable dhcpd6 since the current config is wrong
+      # set container name dhcpd6 allow-host-networks
+      # set container name dhcpd6 image 'networkboot/dhcpd:1'
+      # set container name dhcpd6 environment 'DHCPD_PROTOCOL' value 6
+      # set container name dhcpd6 memory '128'
+      # set container name dhcpd6 cap-add net-raw 
+      # set container name dhcpd6 cap-add net-bind-service
+      # set container name dhcpd6 restart 'always'
+      # set container name dhcpd6 shared-memory '512'
+      # set container name dhcpd6 command 'eth1'
+      # set container name dhcpd6 volume config destination '/data'
+      # set container name dhcpd6 volume config mode 'rw'
+      # set container name dhcpd6 volume config source '/config/container/dhcpd6'
       commit
       save
       exit

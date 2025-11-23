@@ -22,11 +22,17 @@ resource "libvirt_cloudinit_disk" "testbox" {
   network_config = templatefile("${path.module}/templates/testbox-network-config.yaml", {
     public_test_box_ipv4_address = local.public_network_test_box_ipv4
     public_gateway_ip_no_mask    = local.public_network_gateway_ipv4_no_mask
+    private_test_box_ipv6_address = local.private_network_test_box_ipv6
+    private_gateway_ip_v6_no_mask = local.private_network_router_ipv6_no_mask
+    public_test_box_ipv6_address = local.public_network_test_box_ipv6
+    public_gateway_ip_v6_no_mask = local.public_network_gateway_ipv6_no_mask
   })
   pool = libvirt_pool.main.name
   user_data = templatefile("${path.module}/templates/testbox-user-data.yaml", {
     name                                = var.testbox_username
     private_network_router_ipv4_no_mask = local.private_network_router_ipv4_no_mask
+    router_public_ipv4                  = local.public_network_router_ipv4_no_mask
+    router_public_ipv6                  = local.public_network_router_ipv6_no_mask
     private_ssh_key                     = base64encode(var.testbox_ssh_private_key)
     public_ssh_keys = jsonencode([
       var.testbox_ssh_public_key
