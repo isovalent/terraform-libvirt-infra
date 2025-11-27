@@ -32,4 +32,6 @@ runcmd:
     #!/bin/bash
   - "rm -f /etc/resolv.conf" # change the etc/resolv.conf not to use stub-resolv.conf
   - "ln -sv /run/systemd/resolve/resolv.conf /etc/resolv.conf"
+  - "ip route add 10.0.0.0/8 via ${router_public_ipv4}"
+  - "ip -6 route add fd01::/16 via ${router_public_ipv6}"
   - chown -R ${name}:${name} /home/${name}

@@ -46,6 +46,7 @@ resource "libvirt_cloudinit_disk" "router" {
     router_private_ipv4_address_no_mask        = local.private_network_router_ipv4_no_mask
     router_private_ipv6_address                = local.private_network_router_ipv6
     router_public_gateway_ipv4_address_no_mask = local.public_network_gateway_ipv4_no_mask
+    router_public_ipv6_address                 = local.public_network_router_ipv6
 
     dhcp_vm_node_cidr_first_ipv4_address = local.dhcp_vm_node_cidr_first_ipv4_address
     dhcp_vm_node_cidr_last_ipv4_address  = local.dhcp_vm_node_cidr_last_ipv4_address

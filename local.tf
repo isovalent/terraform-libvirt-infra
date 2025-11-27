@@ -12,6 +12,15 @@ locals {
   public_network_test_box_ipv4_no_mask = cidrhost(var.public_network_ipv4_cidr, 3)
   public_network_test_box_ipv4         = "${local.public_network_test_box_ipv4_no_mask}/${local.public_network_ipv4_cidr_mask}"
 
+  public_network_ipv6_cidr_no_mask     = split("/", var.public_network_ipv6_cidr)[0]
+  public_network_ipv6_network_mask     = split("/", var.public_network_ipv6_cidr)[1]
+  public_network_gateway_ipv6_no_mask  = cidrhost(var.public_network_ipv6_cidr, 1)
+  public_network_gateway_ipv6          = "${local.public_network_gateway_ipv6_no_mask}/${local.public_network_ipv6_network_mask}"
+  public_network_router_ipv6_no_mask   = cidrhost(var.public_network_ipv6_cidr, 2)
+  public_network_router_ipv6           = "${local.public_network_router_ipv6_no_mask}/${local.public_network_ipv6_network_mask}"
+  public_network_test_box_ipv6_no_mask = cidrhost(var.public_network_ipv6_cidr, 3)
+  public_network_test_box_ipv6         = "${local.public_network_test_box_ipv6_no_mask}/${local.public_network_ipv6_network_mask}"
+
   private_network_ipv4_cidr_no_mask           = split("/", var.private_network_ipv4_cidr)[0]
   private_network_ipv4_cidr_mask              = split("/", var.private_network_ipv4_cidr)[1]
   private_network_ipv4_netmask                = cidrnetmask(var.private_network_ipv4_cidr)
@@ -26,6 +35,8 @@ locals {
   private_network_ipv6_network_mask    = split("/", var.private_network_ipv6_cidr)[1]
   private_network_router_ipv6_no_mask  = cidrhost(var.private_network_ipv6_cidr, 1)
   private_network_router_ipv6          = "${local.private_network_router_ipv6_no_mask}/${local.private_network_ipv6_network_mask}"
+  private_network_test_box_ipv6_no_mask = cidrhost(var.private_network_ipv6_cidr, 2)
+  private_network_test_box_ipv6         = "${local.private_network_test_box_ipv6_no_mask}/${local.private_network_ipv6_network_mask}"
   dhcp_vm_node_cidr_first_ipv6_address = cidrhost(var.private_network_ipv6_cidr, local.private_network_first_ip_address_last_octet)
   dhcp_vm_node_cidr_last_ipv6_address  = cidrhost(var.private_network_ipv6_cidr, local.private_network_last_ip_address_last_octet)
 

@@ -30,12 +30,22 @@ variable "testbox_username" {
 variable "public_network_ipv4_cidr" {
   description = "the public network IPv4 cidr block for VMs, only /24 is supported for now"
   type        = string
-  default     = "10.0.0.0/24"
+  default     = "172.16.0.0/24"
   validation {
     condition     = can(regex("\\/24$", var.public_network_ipv4_cidr))
     error_message = "please use ipv4 network with /24"
   }
 
+}
+
+variable "public_network_ipv6_cidr" {
+  description = "the public network IPv6 cidr block for VMs, and only /112 is supported for now"
+  type        = string
+  default     = "fd02::/112"
+  validation {
+    condition     = can(regex("\\/112$", var.public_network_ipv6_cidr))
+    error_message = "please use ipv6 network with /112"
+  }
 }
 
 variable "private_network_ipv4_cidr" {

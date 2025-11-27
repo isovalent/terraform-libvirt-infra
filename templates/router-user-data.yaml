@@ -167,6 +167,7 @@ host ${v.hostname}{
       set system host-name ${name}
       delete interfaces ethernet eth0 address dhcp
       set interfaces ethernet eth0 address ${router_public_ipv4_address}
+      set interfaces ethernet eth0 address ${router_public_ipv6_address}
       set interfaces ethernet eth1 address ${router_private_ipv4_address}
       set interfaces ethernet eth1 address ${router_private_ipv6_address}
       # Configure the ipv6 RA for VYOS
@@ -191,7 +192,15 @@ host ${v.hostname}{
       set protocols bgp peer-group kubernetes disable-connected-check
       set protocols bgp peer-group kubernetes ebgp-multihop 10
       set protocols bgp peer-group kubernetes passive
-      set protocols bgp peer-group kubernetes remote-as 65000
+      set protocols bgp peer-group kubernetes remote-as 65001
+
+      set protocols bgp listen range ${private_network_ipv6_cidr} peer-group 'kubernetes-ipv6'
+      set protocols bgp peer-group kubernetes-ipv6 address-family ipv6-unicast soft-reconfiguration inbound
+      set protocols bgp peer-group kubernetes-ipv6 disable-connected-check
+      set protocols bgp peer-group kubernetes-ipv6 ebgp-multihop 10
+      set protocols bgp peer-group kubernetes-ipv6 passive
+      set protocols bgp peer-group kubernetes-ipv6 remote-as 65001
+
       commit
       save
       # Using the container than the vyos built-in features since we need vyos doesn't support some DHCP options and similiar reasons for DNS

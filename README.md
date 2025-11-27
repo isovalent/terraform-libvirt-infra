@@ -8,14 +8,24 @@ Due to a limitation in Terraform's provider initialization, the setup of the lib
 
 This module provisions the following resources on the libvirt host:
 
-*   **Networking**: Creates a public and a private libvirt network.
+*   **Networking**: Creates a public network (defaults: `172.16.0.0/24`, `fd02::/112`) and a private network (defaults: `192.168.1.0/24`, `fd03::/112`).
 *   **VyOS Router**: A VM that acts as a router between the public and private networks. It also provides DHCP and DNS services for the private network.
     *   **Gateway and NAT**: Provides internet access for the VMs on the private network.
-    *   **DHCP Server**: Assigns static IPv4 and IPv6 addresses to Kubernetes nodes based on their MAC addresses.
+    *   **DHCP Server**: Assigns static IPv4 addresses to Kubernetes nodes based on their MAC addresses. DHCPv6 is currently disabled.
     *   **DNS Server (CoreDNS)**: Provides DNS resolution for the cluster, including records for all nodes and Kubernetes API endpoints.
     *   **Load Balancer (HAProxy)**: Acts as a load balancer for the Kubernetes control plane and ingress traffic (ports 80, 443, 6443, and 22623).
-    *   **BGP Peer**: Establishes BGP sessions with Kubernetes nodes, enabling advanced networking features required by CNIs like Cilium.
+    *   **BGP Peer**: Establishes both IPv4 and IPv6 BGP sessions with Kubernetes nodes, enabling advanced networking features required by CNIs like Cilium.
 *   **Testbox VM**: A general-purpose Ubuntu-based VM connected to both networks that can be used for administrative or testing tasks.
+
+    To facilitate BGP testing, the `testbox` VM is automatically configured with static routes that direct traffic for the `10.0.0.0/8` (IPv4) and `fd01::/16` (IPv6) supernets to the VyOS router.
+
+    This setup allows you to test end-to-end connectivity to services exposed via Cilium's BGP integration. When you configure Cilium to advertise its LoadBalancer IP ranges (e.g., `10.0.100.0/24`) via BGP, the VyOS router learns these routes.
+
+    You can then access your LoadBalancer IPs from the `testbox`. The traffic flow works as follows:
+    1. The `testbox` sends traffic for the LoadBalancer IP to the VyOS router, following its broad static route.
+    2. The VyOS router, having learned a more specific route from Cilium via BGP, forwards the traffic to the correct Kubernetes node.
+
+    This allows you to verify that your BGP configuration is working correctly from an external client's perspective.
 
 ## Usage
 
@@ -76,7 +86,7 @@ Port `6443` is forwarded for Kubernetes API access. Once your cluster is running
 | Name | Version |
 |------|---------|
 | <a name="provider_libvirt"></a> [libvirt](#provider\_libvirt) | 0.7.6 |
-| <a name="provider_local"></a> [local](#provider\_local) | 2.5.3 |
+| <a name="provider_local"></a> [local](#provider\_local) | 2.6.1 |
 | <a name="provider_null"></a> [null](#provider\_null) | 3.2.4 |
 
 ## Modules
@@ -119,7 +129,8 @@ No modules.
 | <a name="input_libvirt_root_private_key_path"></a> [libvirt\_root\_private\_key\_path](#input\_libvirt\_root\_private\_key\_path) | The root private key path of the libvirt host. | `string` | n/a | yes |
 | <a name="input_private_network_ipv4_cidr"></a> [private\_network\_ipv4\_cidr](#input\_private\_network\_ipv4\_cidr) | the private network IPv4 cidr block for VMs, only /24 is supported for now | `string` | `"192.168.1.0/24"` | no |
 | <a name="input_private_network_ipv6_cidr"></a> [private\_network\_ipv6\_cidr](#input\_private\_network\_ipv6\_cidr) | the private network IPv6 cidr block for VMs, and only /112 is supported for now | `string` | `"fd03::/112"` | no |
-| <a name="input_public_network_ipv4_cidr"></a> [public\_network\_ipv4\_cidr](#input\_public\_network\_ipv4\_cidr) | the public network IPv4 cidr block for VMs, only /24 is supported for now | `string` | `"10.0.0.0/24"` | no |
+| <a name="input_public_network_ipv4_cidr"></a> [public\_network\_ipv4\_cidr](#input\_public\_network\_ipv4\_cidr) | the public network IPv4 cidr block for VMs, only /24 is supported for now | `string` | `"172.16.0.0/24"` | no |
+| <a name="input_public_network_ipv6_cidr"></a> [public\_network\_ipv6\_cidr](#input\_public\_network\_ipv6\_cidr) | the public network IPv6 cidr block for VMs, and only /112 is supported for now | `string` | `"fd02::/112"` | no |
 | <a name="input_router_image_name"></a> [router\_image\_name](#input\_router\_image\_name) | the name of the router image | `string` | `"vyos-1.4-rolling.qcow2"` | no |
 | <a name="input_router_password"></a> [router\_password](#input\_router\_password) | The login password for vyos. | `string` | `"R0uter123!"` | no |
 | <a name="input_router_public_ssh_port"></a> [router\_public\_ssh\_port](#input\_router\_public\_ssh\_port) | The public SSH port of the router from external. | `number` | `8022` | no |
